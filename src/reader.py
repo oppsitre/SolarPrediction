@@ -6,18 +6,12 @@ import numpy as np
 HOUR_IN_A_DAY = 24
 MISSING_VALUE = -99999
 
-ir_train_data_path = "../dataset/NREL_SSRL_BMS_IRANDMETE/input_data/train/ir_train_data.csv"
-mete_train_data_path = "../dataset/NREL_SSRL_BMS_IRANDMETE/input_data/train/mete_train_data.csv"
 sky_cam_train_data_path = "../dataset/NREL_SSRL_BMS_SKY_CAM/input_data/train/sky_cam_train_data.csv"
 target_train_data_path = "../dataset/NREL_SSRL_BMS_IRANDMETE/input_data/train/target_train_data.csv"
 
-ir_validation_data_path = "../dataset/NREL_SSRL_BMS_IRANDMETE/input_data/validation/ir_validation_data.csv"
-mete_validation_data_path = "../dataset/NREL_SSRL_BMS_IRANDMETE/input_data/validation/mete_validation_data.csv"
 sky_cam_validation_data_path = "../dataset/NREL_SSRL_BMS_SKY_CAM/input_data/validation/sky_cam_validation_data.csv"
 target_validation_data_path = "../dataset/NREL_SSRL_BMS_IRANDMETE/input_data/validation/target_validation_data.csv"
 
-ir_test_data_path = "../dataset/NREL_SSRL_BMS_IRANDMETE/input_data/test/ir_test_data.csv"
-mete_test_data_path = "../dataset/NREL_SSRL_BMS_IRANDMETE/input_data/test/mete_test_data.csv"
 sky_cam_test_data_path = "../dataset/NREL_SSRL_BMS_SKY_CAM/input_data/test/sky_cam_test_data.csv"
 target_test_data_path = "../dataset/NREL_SSRL_BMS_IRANDMETE/input_data/test/target_test_data.csv"
 
@@ -50,19 +44,17 @@ class Reader:
             shape_targets.append(targets[ptr - n_target:ptr])
         return np.array(shape_targets)
 
-    def _get_valid_index(self, ir_features, mete_features, sky_cam_features, targets):
+    def _get_valid_index(self, sky_cam_features, targets):
         """
         @brief get the valida index of the features since there are some missing value in some feature and target
-        @param ir_features, mete_features, sky_cam_features: the three kinds of feautures
+        @param sky_cam_features: the feautures
         @return Return a indices indicates the valid features (no missing value) index
         """
         num = len(targets)
         # print num
         missing_index = []
         for i in range(len(targets)):
-            if (MISSING_VALUE in ir_features[i]) or \
-                (MISSING_VALUE in mete_features[i]) or  \
-                (MISSING_VALUE in sky_cam_features[i]) or \
+            if (MISSING_VALUE in sky_cam_features[i]) or \
                 (True in np.isnan(sky_cam_features[i])) or \
                 (MISSING_VALUE in targets[i]):
                 missing_index.append(i)
@@ -78,14 +70,6 @@ class Reader:
         """
 
         #load data
-        ir_train_raw_data = np.loadtxt(ir_train_data_path, delimiter=',', ndmin=2)
-        ir_validation_raw_data = np.loadtxt(ir_validation_data_path, delimiter=',', ndmin=2)
-        ir_test_raw_data = np.loadtxt(ir_test_data_path, delimiter=',', ndmin=2)
-
-        mete_train_raw_data = np.loadtxt(mete_train_data_path, delimiter=',', ndmin=2)
-        mete_validation_raw_data = np.loadtxt(mete_validation_data_path, delimiter=',', ndmin=2)
-        mete_test_raw_data = np.loadtxt(mete_test_data_path, delimiter=',', ndmin=2)
-
         sky_cam_train_raw_data = np.loadtxt(sky_cam_train_data_path, delimiter=',')
         sky_cam_validation_raw_data = np.loadtxt(sky_cam_validation_data_path, delimiter=',')
         sky_cam_test_raw_data = np.loadtxt(sky_cam_test_data_path, delimiter=',')
@@ -97,13 +81,6 @@ class Reader:
         #feature eshape
         #feature reshape: accumulate several(n_step) features into a new feature for the input the lstm
         #target reshape: align the target with the input feature
-        self.ir_train_data = self._feature_reshape(ir_train_raw_data, config.data_step, config.n_step)
-        self.ir_validation_data = self._feature_reshape(ir_validation_raw_data, config.data_step, config.n_step)
-        self.ir_test_data = self._feature_reshape(ir_test_raw_data, config.data_step, config.n_step)
-
-        self.mete_train_data = self._feature_reshape(mete_train_raw_data, config.data_step, config.n_step)
-        self.mete_validation_data = self._feature_reshape(mete_validation_raw_data, config.data_step, config.n_step)
-        self.mete_test_data = self._feature_reshape(mete_test_raw_data, config.data_step, config.n_step)
 
         self.sky_cam_train_data = self._feature_reshape(sky_cam_train_raw_data, config.data_step, config.n_step)
         self.sky_cam_validation_data = self._feature_reshape(sky_cam_validation_raw_data, config.data_step, config.n_step)
@@ -113,28 +90,14 @@ class Reader:
         self.target_validation_data = self._target_reshape(target_validation_raw_data, config.data_step, config.n_step, config.h_ahead, config.n_target)
         self.target_test_data = self._target_reshape(target_test_raw_data, config.data_step, config.n_step, config.h_ahead, config.n_target)
 
-        self.train_index = self._get_valid_index(self.ir_train_data, self.mete_train_data, self.sky_cam_train_data, self.target_train_data)
-        self.validation_index = self._get_valid_index(self.ir_validation_data, self.mete_validation_data, self.sky_cam_validation_data, self.target_validation_data)
-        self.test_index = self._get_valid_index(self.ir_test_data, self.mete_test_data, self.sky_cam_test_data, self.target_test_data)
+        self.train_index = self._get_valid_index(self.sky_cam_train_data, self.target_train_data)
+        self.validation_index = self._get_valid_index(self.sky_cam_validation_data, self.target_validation_data)
+        self.test_index = self._get_valid_index(self.sky_cam_test_data, self.target_test_data)
 
         #concatenate all valid data
-        ir_raw_valid_data = np.concatenate((ir_train_raw_data[self.train_index], ir_validation_raw_data[self.validation_index], ir_test_raw_data[self.test_index]), axis=0)
-        mete_raw_valid_data = np.concatenate((mete_train_raw_data[self.train_index], mete_validation_raw_data[self.validation_index], mete_test_raw_data[self.test_index]), axis=0)
         sky_cam_raw_valid_data = np.concatenate((sky_cam_train_raw_data[self.train_index], sky_cam_validation_raw_data[self.validation_index], sky_cam_test_raw_data[self.test_index]), axis=0)
 
         #feature scale
-        ir_mean = np.mean(ir_raw_valid_data, axis=0)
-        ir_std = np.std(ir_raw_valid_data, axis=0)
-        self.ir_train_data = (self.ir_train_data - ir_mean) / ir_std
-        self.ir_validation_data = (self.ir_validation_data - ir_mean) / ir_std
-        self.ir_test_data = (self.ir_test_data - ir_mean) / ir_std
-
-        mete_mean = np.std(mete_raw_valid_data, axis=0)
-        mete_std = np.std(mete_raw_valid_data, axis=0)
-        self.mete_train_data = (self.mete_train_data - mete_mean) / mete_std
-        self.mete_validation_data = (self.mete_validation_data - mete_mean) / mete_std
-        self.mete_test_data = (self.mete_test_data - mete_mean) / mete_std
-
         sky_cam_mean = np.mean(sky_cam_raw_valid_data, axis=0)
         sky_cam_std = np.std(sky_cam_raw_valid_data, axis=0)
         self.sky_cam_train_data = (self.sky_cam_train_data - sky_cam_mean) / sky_cam_std
@@ -169,24 +132,17 @@ class Reader:
         @return target_data_batch: [n_model, batch_size, n_target]
         """
         index = np.random.choice(self.train_index, self.batch_size)
-        # index = np.random.random_integers(0, self.train_num-1, size=(self.batch_size))
-        ir_batch_data = self.ir_train_data[index]
-        mete_batch_data = self.mete_train_data[index]
         sky_cam_batch_data = self.sky_cam_train_data[index]
         target_batch_data = self.target_train_data[index]
 
-        return ir_batch_data, \
-                mete_batch_data, \
-                sky_cam_batch_data, \
+        return sky_cam_batch_data, \
                 target_batch_data
 
     def get_train_set(self):
         """
         @brief return the total dataset
         """
-        return self.ir_train_data[self.train_index], \
-                self.mete_train_data[self.train_index], \
-                self.sky_cam_train_data[self.train_index], \
+        return self.sky_cam_train_data[self.train_index], \
                 self.target_train_data[self.train_index]
 
     #The returned validataion and test set:
@@ -196,9 +152,7 @@ class Reader:
         """
         @brief return the total validation dataset
         """
-        return self.ir_validation_data[0:self.validataion_num], \
-                self.mete_validation_data[0:self.validataion_num], \
-                self.sky_cam_validation_data[0:self.validataion_num], \
+        return self.sky_cam_validation_data[0:self.validataion_num], \
                 self.target_validation_data[0:self.validataion_num]
 
     def get_test_set(self, test_num):
@@ -206,7 +160,5 @@ class Reader:
         @brief return a test set in the specific test num
         @param test_num The number of test set to return
         """
-        return self.ir_test_data[0:test_num], \
-                self.mete_test_data[0:test_num], \
-                self.sky_cam_test_data[0:test_num], \
+        return self.sky_cam_test_data[0:test_num], \
                 self.target_test_data[0:test_num]

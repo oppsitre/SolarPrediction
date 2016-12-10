@@ -48,8 +48,6 @@ class Model:
         self.keep_prob = keep_prob
 
         #the network parameters
-        self.n_first_hidden = config.n_first_hidden
-        self.n_second_hidden = config.n_second_hidden
         self.n_third_hidden = config.n_third_hidden
         self.n_hidden_level2 = config.n_hidden_level2
         self.n_fully_connect_hidden = config.n_fully_connect_hidden
@@ -74,29 +72,14 @@ class Model:
         """
         if self._prediction is None:
             # build the graph
-            # solar rnn lstm
-            with tf.variable_scope("first_level1"):
-                cell_1 = tf.nn.rnn_cell.LSTMCell(self.n_first_hidden, state_is_tuple=True)
-                outputs_1, state_1 = tf.nn.dynamic_rnn(cell_1, self.data[0], dtype=tf.float32)
-
-            # temp rnn lstm
-            with tf.variable_scope("first_level2"):
-                cell_2 = tf.nn.rnn_cell.LSTMCell(self.n_second_hidden, state_is_tuple=True)
-                outputs_2, state_2 = tf.nn.dynamic_rnn(cell_2, self.data[1], dtype=tf.float32)
-
             with tf.variable_scope("first_level3"):
                 cell_3 = tf.nn.rnn_cell.LSTMCell(self.n_third_hidden, state_is_tuple=True)
-                outputs_3, state3 = tf.nn.dynamic_rnn(cell_3, self.data[2], dtype=tf.float32)
-
-            # concat two features into a feature
-            # NOTICE: there is no cnn layer since we use the opencv or some other methods to extract features
-            #         from the images and so only concat it with the lstm outputs
-            data_level2 = tf.concat(2, [outputs_1, outputs_2, outputs_3)
+                outputs_3, state3 = tf.nn.dynamic_rnn(cell_3, self.data[0], dtype=tf.float32)
 
             #2nd level lstm
             with tf.variable_scope("second_level"):
                 cell_level2 = tf.nn.rnn_cell.LSTMCell(self.n_hidden_level2, state_is_tuple=True)
-                outputs, state_level2 = tf.nn.dynamic_rnn(cell_level2, data_level2, dtype=tf.float32)
+                outputs, state_level2 = tf.nn.dynamic_rnn(cell_level2, outputs_3, dtype=tf.float32)
 
             #outputs: [batch_size, n_step, n_hidden] -->> [n_step, batch_size, n_hidden]
             #output: [batch_size, n_hidden]
