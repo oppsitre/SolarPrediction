@@ -14,13 +14,11 @@ def do_eval(sess,
             prediction,
             x_ir_placeholder,
             x_mete_placeholder,
-            x_sky_cam_placeholder,
             training_placeholder,
             input_data):
     feed_dict = {
         x_ir_placeholder: input_data[0],
         x_mete_placeholder: input_data[1],
-        x_sky_cam_placeholder: input_data[2],
         training_placeholder: False
     }
     return sess.run(prediction, feed_dict=feed_dict)
@@ -31,11 +29,8 @@ def main(_):
 
     n_step = config.n_step
     n_target = config.n_target
-    n_input_ir = 36
-    n_input_mete = 26
-
-    width_image = config.width
-    height_image = config.height
+    n_input_ir = 31
+    n_input_mete = 20
 
     epoch_size = config.epoch_size
     print_step = config.print_step
@@ -45,7 +40,6 @@ def main(_):
     #define the input and output
     x_ir = tf.placeholder(tf.float32, [None, n_step, n_input_ir])
     x_mete = tf.placeholder(tf.float32, [None, n_step, n_input_mete])
-    x_sky_cam = tf.placeholder(tf.float32, [None, n_step, height_image, width_image])
 
     y_ = tf.placeholder(tf.float32, [None, n_target])
 
@@ -80,25 +74,25 @@ def main(_):
             save_path = saver.restore(sess, path)
             print "restore model"
 
-        ir_train_input, mete_train_input, sky_cam_train_input, train_target = reader.get_train_set()
-        ir_test_input, mete_test_input, sky_cam_test_input, test_target = reader.get_test_set()
-        ir_validation_input, mete_validation_input, sky_cam_validation_input, validation_target = reader.get_validation_set()
+        ir_train_input, mete_train_input, train_target = reader.get_train_set()
+        ir_test_input, mete_test_input, test_target = reader.get_test_set()
+        ir_validation_input, mete_validation_input, validation_target = reader.get_validation_set()
 
         for i in range(epoch_size):
             # test
-            if i%config.test_step == 0:
-                test_result = do_eval(sess, prediction, x_ir, x_mete, x_sky_cam_placeholder, training, [ir_test_input, mete_test_input, sky_cam_test_input])
+            if i%config.test_step == 0 and i>0:
+                test_result = do_eval(sess, prediction, x_ir, x_mete, training, [ir_test_input, mete_test_input])
                 #calculate the mse and mae
                 mse, mae = MSE_And_MAE(test_target, test_result)
                 print "Test MSE: ", mse
                 print "Test MAE: ", mae
 
-                validation_result = do_eval(sess, prediction, x_ir, x_mete, x_sky_cam_placeholder, training, [ir_validation_input, mete_validation_input, sky_cam_validation_input])
+                validation_result = do_eval(sess, prediction, x_ir, x_mete, training, [ir_validation_input, mete_validation_input])
                 mse, mae = MSE_And_MAE(validation_target, validation_result)
                 print "Validation MSE: ", mse
                 print "Validation MAE: ", mae
 
-                train_result = do_eval(sess, prediction, x_ir, x_mete, x_sky_cam_placeholder, training, [ir_train_input, mete_train_input, sky_cam_train_input])
+                train_result = do_eval(sess, prediction, x_ir, x_mete, training, [ir_train_input, mete_train_input])
                 mse, mae = MSE_And_MAE(train_target, train_result)
                 print "Train MSE: ", mse
                 print "Train MAE: ", mae
@@ -108,17 +102,24 @@ def main(_):
                 print "\n"
                 print "bias of regression: ", sess.run(model.bias)
 
-                test_result_path = "../output/" + str(config.regressor) + "/" + str(config.h_ahead) + "_" + str(config.h_ahead + config.n_target) + ".res"
+                if not os.path.exists('../output/'):
+                    os.mkdir('../output/')
+                if not os.path.exists('../output/day_before/'):
+                    os.mkdir('../output/day_before/')
+                if not os.path.exists('../output/day_before/' + str(config.regressor) + '/'):
+                    os.mkdir('../output//day_before/' + str(config.regressor) + '/')
+                test_result_path = "../output/day_before/" + str(config.regressor) + "/" + str(config.h_ahead) + "_" + str(config.h_ahead + config.n_target) + ".res"
+                print best_test_result.shape
                 np.savetxt(test_result_path, best_test_result, fmt="%.4f", delimiter=',')
 
             #train
             batch = reader.next_batch()
-            train_feed = {x_ir:batch[0], x_mete:batch[1], x_sky_cam: batch[2], y_:batch[3], training: True}
+            train_feed = {x_ir:batch[0], x_mete:batch[1], y_:batch[2], training: True}
             sess.run(optimize, feed_dict=train_feed)
 
             #print step
             if i%config.print_step == 0:
-                train_feed = {x_ir:batch[0], x_mete:batch[1], x_sky_cam: batch[2], y_:batch[3], training: False}
+                train_feed = {x_ir:batch[0], x_mete:batch[1], y_:batch[2], training: False}
                 print "train loss:",sess.run(loss, feed_dict=train_feed)
                 print "validation loss: ", validation_last_loss
 
@@ -126,8 +127,7 @@ def main(_):
             validation_set = reader.get_validation_set()
             validation_feed = {x_ir: ir_validation_input, \
                                 x_mete: mete_validation_input, \
-                                x_sky_cam: sky_cam_validation_input, \
-                                y_: target_validation_data,\
+                                y_: validation_target,\
                                 training: False}
             validation_loss = sess.run(loss, feed_dict=validation_feed)
 
@@ -138,7 +138,7 @@ def main(_):
             #compare the validation with the last loss
             if validation_loss < validation_last_loss:
                 validation_last_loss = validation_loss
-                best_test_result = do_eval(sess, prediction, x_ir, x_mete, x_sky_cam_placeholder, training, [ir_test_input, mete_test_input, sky_cam_test_input])
+                best_test_result = do_eval(sess, prediction, x_ir, x_mete, training, [ir_test_input, mete_test_input])
 
             # print "validation loss: ", validation_loss
             if i%100 == 0 and i > 0:

@@ -19,8 +19,6 @@ ir_test_data_path = "../dataset/NREL_SSRL_BMS_IRANDMETE/input_data/test/ir_test_
 mete_test_data_path = "../dataset/NREL_SSRL_BMS_IRANDMETE/input_data/test/mete_test_data.csv"
 target_test_data_path = "../dataset/NREL_SSRL_BMS_IRANDMETE/input_data/test/target_test_data.csv"
 
-sky_cam_raw_data_path = '../dataset/NREL_SSRL_BMS_SKY_CAM/raw_data/SSRL_SKY_CAM_IMAGE/'
-
 class Reader:
 
     def _feature_reshape(self, features, data_step, n_step):
@@ -53,7 +51,7 @@ class Reader:
     def _get_valid_index(self, ir_features, mete_features, targets):
         """
         @brief get the valida index of the features since there are some missing value in some feature and target
-        @param ir_features, mete_features, sky_cam_features: the three kinds of feautures
+        @param ir_features, mete_features: the three kinds of feautures
         @return Return a indices indicates the valid features (no missing value) index
         """
         num = len(targets)
@@ -61,7 +59,6 @@ class Reader:
         for i in range(len(targets)):
             if (True in np.isnan(ir_features[i]))  or \
                 (True in np.isnan(mete_features[i])) or  \
-                (MISSING_VALUE in sky_cam_features[i]) or \
                 (True in np.isnan(targets[i])):
                 missing_index.append(i)
         print missing_index
@@ -93,10 +90,6 @@ class Reader:
         mete_train_raw_data = np.loadtxt(mete_train_data_path, delimiter=',', ndmin=2)
         mete_validation_raw_data = np.loadtxt(mete_validation_data_path, delimiter=',', ndmin=2)
         mete_test_raw_data = np.loadtxt(mete_test_data_path, delimiter=',', ndmin=2)
-
-        sky_cam_train_raw_data = np.array(np.loadtxt(sky_cam_train_data_path, delimiter=',', dtype='float'), dtype='int')
-        sky_cam_validation_raw_data = np.array(np.loadtxt(sky_cam_validation_data_path, delimiter=',', dtype='float'), dtype='int')
-        sky_cam_test_raw_data = np.array(np.loadtxt(sky_cam_test_data_path, delimiter=',', dtype='float'), dtype='int')
 
         target_train_raw_data = np.loadtxt(target_train_data_path, delimiter=',')
         target_validation_raw_data = np.loadtxt(target_validation_data_path, delimiter=',')
@@ -139,10 +132,6 @@ class Reader:
         self.mete_train_data = mete_train_data[train_index]
         self.mete_validation_data = mete_validation_data[validation_index]
         self.mete_test_data = mete_test_data[test_index]
-
-        self.sky_cam_train_data = sky_cam_train_data[train_index]
-        self.sky_cam_validation_data = sky_cam_validation_data[validation_index]
-        self.sky_cam_test_data = sky_cam_test_data[test_index]
 
         self.target_train_data = target_train_data[train_index]
         self.target_validation_data = target_validation_data[validation_index]
@@ -190,10 +179,6 @@ class Reader:
 
         self.batch_size = config.batch_size
 
-        self.n_step = config.n_step
-        self.width = config.width
-        self.height = config.height
-
         # self.index = np.random.random_integers(0, self.train_num-1, size=(self.batch_size))
         #print the dataset info
         print "Dataset info"
@@ -205,34 +190,6 @@ class Reader:
         print "use", config.n_step, "hours to predict the next ", config.n_target, " consecutive hours"
         print "\n"
 
-    def path2image(self, data):
-        mean = cv2.resize(np.load('mean.npy'), (self.height, self.width)).astype('float32')
-        std = cv2.resize(np.load('std.npy'), (self.height, self.width)).astype('float32')
-        img_list = []
-        for idx in len(data):
-            img = []
-            for i in range(self.n_step):
-                if data[idx, i] == -11111:
-                    img.append(np.zeros((self.height,self.width)))
-                else:
-                    #print '3'
-                    filename = str(int(data[idx, i]))
-                    #print 'lllllllllllllll:', data[idx, i]
-                    y = filename[:4]
-                    m = filename[4:6]
-                    d = filename[6:8]
-                    #h = filename[8:]
-                    #print filename, y, m, d, h
-                    path = sky_cam_raw_data_path + str(y) + '/' + str(m) + '/' + str(d) + '/' + str(filename) + '.jpg'
-                    #/ home / lcc / code / python / SolarPrediction / dataset / NREL_SSRL_BMS_SKY_CAM / SSRL_SKY / 2008 / 01 / 01
-                    tmp = cv2.resize(cv2.imread(path, 0), (self.height, self.width)).astype('float32')
-                    tmp -= mean
-                    tmp /= std
-                    #print 'TMMMMMMMMMMMMMP:', tmp.shape
-                    img.append(tmp)
-            img_list.append(img)
-        return np.array(img_list)
-
     def next_batch(self):
         """
         @brief return a batch of train and target data
@@ -243,7 +200,6 @@ class Reader:
         index = np.random.choice(np.arange(self.train_num), self.batch_size, replace=False)
         ir_batch_data = self.ir_train_data[index]
         mete_batch_data = self.mete_train_data[index]
-        sky_cam_batch_data = self.path2image(self.sky_cam_train_data, index)
         target_batch_data = self.target_train_data[index]
 
         return ir_batch_data, \
@@ -256,7 +212,6 @@ class Reader:
         """
         return self.ir_train_data, \
                 self.mete_train_data, \
-                self.path2image(self.sky_cam_train_data), \
                 self.target_train_data
 
     #The returned validataion and test set:
@@ -268,7 +223,6 @@ class Reader:
         """
         return self.ir_validation_data, \
                 self.mete_validation_data, \
-                self.path2image(self.sky_cam_validation_data), \
                 self.target_validation_data
 
     def get_test_set(self):
@@ -278,5 +232,4 @@ class Reader:
         """
         return self.ir_test_data, \
                 self.mete_test_data, \
-                self.path2image(self.sky_cam_test_data), \
                 self.target_test_data

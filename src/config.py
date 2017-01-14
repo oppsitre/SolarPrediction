@@ -17,7 +17,6 @@ class Model_Config:
     # the hidden size for three modalities, second level lstm and fully connected newwork
     n_first_hidden = 100
     n_second_hidden = 80
-    n_third_hidden = 100
     cnn_feat_size = 200
     n_hidden_level2 = 400
 
@@ -41,6 +40,3 @@ class Model_Config:
 
     print_step = 10
     test_step = 50
-
-    width = 64
-    height = 64
