@@ -20,9 +20,9 @@ epsilon = 10
 
 quantile_rate = 0.3
 
-hidden_size = 500
-lr = 0.001
-batch_size = 100
+hidden_size = 300
+lr = 0.005
+batch_size = 500
 epoch_size = 10000
 print_step = 200
 test_step = 500
@@ -89,13 +89,9 @@ mete_train_raw_data = np.loadtxt(mete_train_data_path, delimiter=',')
 mete_validation_raw_data = np.loadtxt(mete_validation_data_path, delimiter=',')
 mete_test_raw_data = np.loadtxt(mete_test_data_path, delimiter=',')
 
-# target_train_raw_data = np.loadtxt(target_train_data_path, delimiter=',')
-# target_validation_raw_data = np.loadtxt(target_validation_data_path, delimiter=',')
-# target_test_raw_data = np.loadtxt(target_test_data_path, delimiter=',')
-
-target_train_raw_data = ir_train_raw_data[:, 7]
-target_test_raw_data = ir_test_raw_data[:,7]
-target_validation_raw_data = ir_validation_raw_data[:,7]
+target_train_raw_data = np.loadtxt(target_train_data_path, delimiter=',')
+target_validation_raw_data = np.loadtxt(target_validation_data_path, delimiter=',')
+target_test_raw_data = np.loadtxt(target_test_data_path, delimiter=',')
 
 np.set_printoptions(precision=4)
 print np.array(sorted(target_test_raw_data[np.arange(h_ahead, len(target_test_raw_data), HOUR_IN_A_DAY)]))
@@ -185,7 +181,7 @@ if model == "msvr":
 elif model == "lin":
     print "use the linear regression model"
     w_sum = tf.reduce_sum(tf.square(weight))
-    loss = tf.reduce_mean(tf.square(prediction - y_))+w_sum*5
+    loss = tf.reduce_mean(tf.square(prediction - y_))+w_sum*3
 elif model == "quantile":
     print "use the quantile regression model, the quantile rate is", quantile_rate
     #define the loss
@@ -204,7 +200,11 @@ w_sum = tf.reduce_sum(tf.square(weight))
 saver = tf.train.Saver()
 validation_last_loss = 'inf'
 
-with tf.Session() as sess:
+tensor_config = tf.ConfigProto()
+tensor_config.gpu_options.allow_growth = True
+tensor_config.log_device_placement = True
+
+with tf.Session(config=tensor_config) as sess:
   # initialize all variables
   # the new method in r0.12
   # if you are use the earlier version, please replace it with initial_all_variable
@@ -220,7 +220,7 @@ with tf.Session() as sess:
     mete_input, target = mete_train_data[index], target_train_data[index]
     sess.run(optimize, feed_dict={x_mete: mete_input, y_: target, keep_prob: 0.8})
 
-    if i%25 == 0:
+    if i%10 == 0:
         sess.run(optimize, feed_dict={x_mete: mete_validation_data, y_: target_validation_data, keep_prob: 0.8})
 
     if i%print_step == 0:
